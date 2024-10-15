@@ -10,8 +10,8 @@ import argparse
 class TrainConfig:
     experiment_name: str = "sclam_cobra"  # checkpoints, attention maps, outputs are stored under this experiment name within default_save_dir
     wandb_project_name: str = "sclam_cobra"
-    image_path: str = "./test"
-    mask_path: str = "./test"
+    image_path: str = "./test_images"
+    mask_path: str = "./test_images"
     fold: int = 0
     train_csv: str = "train.csv"
     val_csv: str = "val.csv"
@@ -26,9 +26,9 @@ class TrainConfig:
     strategy: str = "ddp_find_unused_parameters_true"
     default_save_dir: str = "./ckp"
     ckp_path: str = ""  # the name fo the ckp file within the default_save_dir, otherwise last.ckpt will be used (if present)
-    resume: bool = True  # Whether to resume training from the last/best epoch
+    resume: bool = False  # Whether to resume training from the last/best epoch
     grad_batches: int = 2  # Gradient accumulation: the amount of batches before optimizer step
-    num_gpus: int = 4
+    num_gpus: int = 1
     precision: str = "32"
 
     # StreamingClam options
@@ -50,7 +50,7 @@ class TrainConfig:
     tile_size_finetune: int = 3200  # Same as above, but should be lower since gradients of the entire model need to be kept in memory
     statistics_on_cpu: bool = True
     verbose: bool = True
-    train_streaming_layers: bool = False
+    train_streaming_layers: bool = True
     normalize_on_gpu: bool = True
     copy_to_gpu: bool = False  # Whether to copy the entire image to the gpu. Recommended False if image > 16000x16000
 
