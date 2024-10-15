@@ -8,23 +8,23 @@ import argparse
 @dataclass_json
 @dataclasses.dataclass
 class TrainConfig:
-    experiment_name: str = "sclam_debug"  # checkpoints, attention maps, outputs are stored under this experiment name within default_save_dir
-    wandb_project_name: str = "sclam_debug"
-    image_path: str = ""
-    mask_path: str = ""
+    experiment_name: str = "sclam_cobra"  # checkpoints, attention maps, outputs are stored under this experiment name within default_save_dir
+    wandb_project_name: str = "sclam_cobra"
+    image_path: str = "./test"
+    mask_path: str = "./test"
     fold: int = 0
-    train_csv: str = f"/data/pathology/projects/pathology-bigpicture-streamingclam/streaming_experiments/camelyon/data_splits/train_{str(fold)}.csv"
-    val_csv: str = f"/data/pathology/projects/pathology-bigpicture-streamingclam/streaming_experiments/camelyon/data_splits/val_{str(fold)}.csv"
+    train_csv: str = f"train.csv"
+    val_csv: str = f"val.csv"
     test_csv: str = "/data/pathology/projects/pathology-bigpicture-streamingclam/streaming_experiments/camelyon/data_splits/test.csv"
-    attention_csv: str = "/data/pathology/projects/pathology-bigpicture-streamingclam/streaming_experiments/camelyon/data_splits/test.csv"
+    attention_csv: str = "val.csv"
     mask_suffix: str = "_tissue"  # the suffix for mask tissues e.g. tumor_069_<mask_suffix>.tif
-    mode: str = "test"  # fit, validation, test, attention, or predict
+    mode: str = "fit"  # fit, validation, test, attention, or predict
     unfreeze_streaming_layers_at_epoch: int = 25
 
     # Trainer options
     num_epochs: int = 35  # The number of epochs to train (max)
     strategy: str = "ddp_find_unused_parameters_true"
-    default_save_dir: str = "/data/pathology/projects/pathology-bigpicture-uncertainty/ckp"
+    default_save_dir: str = "./ckp"
     ckp_path: str = ""  # the name fo the ckp file within the default_save_dir, otherwise last.ckpt will be used (if present)
     resume: bool = True  # Whether to resume training from the last/best epoch
     grad_batches: int = 2  # Gradient accumulation: the amount of batches before optimizer step
