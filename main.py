@@ -137,7 +137,6 @@ def configure_streamingclam(options, streaming_options):
         "attention_only": options.attention_only,
         "unfreeze_at_epoch": options.unfreeze_streaming_layers_at_epoch,
         "learning_rate": options.learning_rate,
-        "additive": options.additive,
         "write_attention": True
     }
 

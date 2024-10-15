@@ -18,14 +18,12 @@ class CLAMConfig:
         k_sample: int = 8,
         instance_loss_fn: torch.nn = torch.nn.CrossEntropyLoss,
         subtyping=False,
-        additive=False,
     ):
         self.branch = branch
         self.encoder = encoder
         self.n_classes = n_classes
         self.size = self.configure_size()
-
-        self.additive = additive
+        
         self.gate = gate
         self.use_dropout = use_dropout
         self.k_sample = k_sample
@@ -53,7 +51,6 @@ class CLAMConfig:
                 n_classes=self.n_classes,
                 instance_loss_fn=self.instance_loss_fn(),
                 subtyping=self.subtyping,
-                additive=self.additive,
             )
         elif self.branch == "mb":
             print("Loading CLAM with multiple branches \n")
@@ -92,7 +89,6 @@ class StreamingCLAM(ImageNetClassifier):
         attention_only: bool = False,
         unfreeze_at_epoch: int = 25,
         learning_rate: float = 2e-4,
-        additive: bool = False,
         write_attention: bool = False,
         **kwargs,
     ):
@@ -104,7 +100,6 @@ class StreamingCLAM(ImageNetClassifier):
         self.attention_only = attention_only
         self.unfreeze_at_epoch = unfreeze_at_epoch
         self.learning_rate = learning_rate
-        self.additive = additive
         self.write_attention = write_attention
 
         if self.pooling_kernel < 0:
@@ -119,7 +114,7 @@ class StreamingCLAM(ImageNetClassifier):
             network = StreamingCLAM.model_choices[encoder](weights="IMAGENET1K_V1")
             stream_net, _ = split_resnet(network)
 
-        head = CLAMConfig(encoder=encoder, branch=branch, n_classes=n_classes, additive=additive).configure_clam()
+        head = CLAMConfig(encoder=encoder, branch=branch, n_classes=n_classes)
 
         # At the end of the ResNet model, reduce the spatial dimensions with additional pooling layers
         self._get_streaming_options(**kwargs)
