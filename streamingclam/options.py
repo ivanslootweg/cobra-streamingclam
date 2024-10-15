@@ -13,9 +13,9 @@ class TrainConfig:
     image_path: str = "./test"
     mask_path: str = "./test"
     fold: int = 0
-    train_csv: str = f"train.csv"
-    val_csv: str = f"val.csv"
-    test_csv: str = "/data/pathology/projects/pathology-bigpicture-streamingclam/streaming_experiments/camelyon/data_splits/test.csv"
+    train_csv: str = "train.csv"
+    val_csv: str = "val.csv"
+    test_csv: str = "val.csv"
     attention_csv: str = "val.csv"
     mask_suffix: str = "_tissue"  # the suffix for mask tissues e.g. tumor_069_<mask_suffix>.tif
     mode: str = "fit"  # fit, validation, test, attention, or predict
