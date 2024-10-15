@@ -1,0 +1,13 @@
+# Python version check (Python 3.10 or higher)
+python_version >= "3.10"
+
+# Core libraries
+torch>=2.0.0
+torchvision
+pytorch-lightning>=2.0.0
+
+# Image augmentation
+albumentationsxl
+
+# Data streaming library
+lightstream

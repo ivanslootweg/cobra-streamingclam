@@ -1,0 +1,13 @@
+{
+	"name": "Existing Dockerfile",
+	"build": {
+	  "context": "..",
+	  "dockerfile": "../Dockerfile"
+	},
+	"workspaceMount": "source=cobra-streaming,target=/app,type=volume",
+	"workspaceFolder": "/app",
+	"runArgs": [
+	  "--gpus=all"
+	]
+  }
+  
