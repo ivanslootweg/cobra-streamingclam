@@ -32,8 +32,7 @@ def create_symlinks(label_csv,split="train"):
 if __name__ == "__main__":
     if not os.path.exists(DATA_OUT / "images"):
         os.makedirs(DATA_OUT / "images")
-    print(DATA_OUT)
-    print(os.listdir(DATA_OUT))
+
     if not os.path.exists(DATA_OUT / "tissue_masks"):
         os.makedirs(DATA_OUT / "tissue_masks")
 

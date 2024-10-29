@@ -4,10 +4,10 @@ from lightstream.models.resnet.resnet import split_resnet
 from streamingclam.models.clam import CLAM_MB, CLAM_SB
 from torchvision.models import resnet18, resnet34, resnet50
 from torchmetrics.classification import Accuracy, AUROC
-
+import os
 
 # Streamingclam works with resnets, can be extended to other encoders if needed
-class CLAMConfig:
+class CLAMConfig(torch.nn.Module):
     def __init__(
         self,
         encoder: str,
@@ -112,10 +112,8 @@ class StreamingCLAM(ImageNetClassifier):
         # Define the streaming network and head
         if encoder in ("resnet18", "resnet34", "resnet50"):
             network = StreamingCLAM.model_choices[encoder](weights="IMAGENET1K_V1")
-            stream_net, _ = split_resnet(network)
-
-        head = CLAMConfig(encoder=encoder, branch=branch, n_classes=n_classes)
-
+            stream_net, _ = split_resnet(network) #
+        head = CLAMConfig(encoder=encoder, branch=branch, n_classes=n_classes).configure_clam()
         # At the end of the ResNet model, reduce the spatial dimensions with additional pooling layers
         self._get_streaming_options(**kwargs)
 
@@ -133,7 +131,18 @@ class StreamingCLAM(ImageNetClassifier):
                 )
             else:
                 ds_blocks, head = self.add_pooling_layers(head)
-                super().__init__(
+                """
+                AttributeError
+                CLAMConfig object (head) has no attribute parameters
+                in lightstream.modules.imagenet_temaplate ( (super())) :
+
+                    def extend_trainable_params(self):
+                        if self.params:
+                            return self.params + list(self.head.parameters())
+                        return list(self.head.parameters())
+                
+                """
+                super().__init__( # streaming initialized here
                     stream_net,
                     head,
                     tile_size,
