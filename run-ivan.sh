@@ -18,7 +18,7 @@ python3 main.py \
     --grad_batches=1 \
     --num_gpus=1 \
     --precision="bf16-mixed" \
-    --encoder="resnet3" \
+    --encoder="resnet39" \
     --branch="sb" \
     --pooling_layer="avgpool" \
     --pooling_kernel=16 \

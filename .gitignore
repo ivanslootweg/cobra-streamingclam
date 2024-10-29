@@ -8,4 +8,3 @@ README.md
 streamingclam/data_splits/*
 data_source/*
 *.pyc
-streamingclam/data_splits/test.csv
