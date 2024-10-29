@@ -3,7 +3,7 @@ import pandas as pd
 from pathlib import Path
 import numpy as np
 
-DATASET_SIZE = 100
+DATASET_SIZE = None
 DATA_OUT = Path("/data/temporary/ivan/DeepDerma/BCC_SCLAM/cobra-streamingclam/data_source")
 
 def symlink_force(src, dest):
@@ -11,20 +11,18 @@ def symlink_force(src, dest):
     try:
         os.symlink(src, dest)
     except FileExistsError as e:
-        os.remove(dest)
-        os.symlink(src, dest)
-
+        return
 
 def create_symlinks(label_csv,split="train"):
     label_csv["slide"] = list(map(lambda x: f'{split}_' + x, map(str,np.arange(len(label_csv)))))
-    label_csv["data_source_folder"] = label_csv["tumor"].map( lambda x: source_folder[x])
 
-    for (slide,uuid,data_source_folder) in label_csv[["slide","uuid","data_source_folder"]].itertuples(index=False):
-        image_source_path = data_source_folder / f"images/{uuid}.tiff"
-        mask_source_path = data_source_folder / f"tissue_masks/{uuid}.tiff"
-        symlink_force(image_source_path,DATA_OUT / f"images/{slide}.tiff")
-        symlink_force(mask_source_path,DATA_OUT / f"tissue_masks/{slide}.tiff")
+    for (slide,uuid) in label_csv[["slide","uuid"]].itertuples(index=False):
+        image_source_path = data_source_folder / f"images/{uuid}.tif"
+        mask_source_path = data_source_folder / f"tissue_masks/{uuid}.tif"
+        symlink_force(image_source_path,DATA_OUT / f"images/{slide}.tif")
+        symlink_force(mask_source_path,DATA_OUT / f"tissue_masks/{slide}.tif")
         
+    label_csv.to_csv(DATA_OUT / f"{split}_keys.csv",index=False)
     label_csv = label_csv[["slide","tumor"]]
     label_csv.to_csv(DATA_OUT / f"{split}.csv",index=False)
 
@@ -36,21 +34,14 @@ if __name__ == "__main__":
     if not os.path.exists(DATA_OUT / "tissue_masks"):
         os.makedirs(DATA_OUT / "tissue_masks")
 
-    image_folder_bcc = Path("/data/pa_cpgarchive/archives/skin/cobra/data/bcc_risk/data/bcc")
-    image_folder_nonmalignant = Path("/data/pa_cpgarchive/archives/skin/cobra/data/bcc_risk/data/non-malignant")
+    data_source_folder = Path("/data/pa_cpgarchive/archives/skin/cobra/data/biopsies")
     label_folder = Path("/data/pa_cpgarchive/archives/skin/cobra/folds/bcc_risk")
-    source_folder = {0: image_folder_nonmalignant,
-                        1: image_folder_bcc
-                    }
 
     for split in ("train","test","val"):
         label_path = label_folder / "train.csv"
-    # test_label_path = label_folder / "test.csv"
-    # val_label_path = label_folder / "test.csv"
-        labels = pd.read_csv(label_path)[:DATASET_SIZE]
-    # train_labels = pd.read_csv(train_label_path)[:DATASET_SIZE]
-    # test_labels = pd.read_csv(test_label_path)[:DATASET_SIZE]
-
+        if DATASET_SIZE:
+            labels = pd.read_csv(label_path)[:DATASET_SIZE] 
+        else:
+            labels = pd.read_csv(label_path)
         create_symlinks(labels,split=split)
-        # create_symlinks(test_labels,split="test")
 

@@ -8,3 +8,4 @@ README.md
 streamingclam/data_splits/*
 data_source/*
 *.pyc
+tile_cache*
