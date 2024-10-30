@@ -31,4 +31,6 @@ python3 main.py \
     --tile_size_finetune=4800 \
     --tile_size=6400 \
     --image_size=14400 \
-    # --tile_size=9600 \ setting this var to 9600 affects execution (termination). default 3200 or 4800 (BCC paper) works 
+    # tile size was 6400
+    # --tile_size=9600 
+    # \ setting this var to 9600 affects execution (termination). default 3200 or 4800 (BCC paper) works 

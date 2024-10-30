@@ -38,10 +38,9 @@ if __name__ == "__main__":
     label_folder = Path("/data/pa_cpgarchive/archives/skin/cobra/folds/bcc_risk")
 
     for split in ("train","test","val"):
-        label_path = label_folder / "train.csv"
+        label_path = label_folder / f"{split}.csv"
         if DATASET_SIZE:
             labels = pd.read_csv(label_path)[:DATASET_SIZE] 
         else:
             labels = pd.read_csv(label_path)
-        create_symlinks(labels,split=split)
-
+        create_symlinks(labels,split=split)    
