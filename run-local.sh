@@ -1,4 +1,4 @@
-cd B:/temporary/ivan/DeepDerma/BCC_SCLAM/cobra-streamingclam
+# cd B:/temporary/ivan/DeepDerma/BCC_SCLAM/cobra-streamingclam
 # python3 fetch_data.py
 FOLD="0" 
 
