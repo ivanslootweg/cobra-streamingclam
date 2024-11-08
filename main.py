@@ -3,6 +3,8 @@ import os
 os.environ["WANDB_DIR"] = "/home/stephandooper"
 os.environ["VIPS_CONCURRENCY"] = "30"
 os.environ["OMP_NUM_THREADS"] = "4"
+# os.environ["TORCH_LOGS"] = "+dynamo"
+# os.environ["TORCHDYNAMO_VERBOSE"]="1"
 import pyvips
 
 pyvips.cache_set_max(20)
@@ -65,14 +67,21 @@ def configure_callbacks(options):
 def configure_checkpoints():
     try:
         # Check for last checkpoint
-        last_checkpoint = list(Path(options.default_save_dir + f"/{options.experiment_name}/fold_{str(options.fold)}").glob("*last.ckpt"))
-        last_checkpoint_path = str(last_checkpoint[0])
+        if options.resume_epoch :
+            checkpoint = list(Path(options.default_save_dir + f"/{options.experiment_name}/fold_{str(options.fold)}/ckp").glob(f"*{options.resume_epoch}-val_loss*.ckpt"))
+            checkpoint_path = str(checkpoint[0])          
+            print(checkpoint_path)
+        elif options.resume:
+            checkpoint = list(Path(options.default_save_dir + f"/{options.experiment_name}/fold_{str(options.fold)}/ckp").glob("*last.ckpt"))
+            checkpoint_path = str(checkpoint[0])
+        else:
+            checkpoint_path = None
     except IndexError:
         if options.resume:
             warnings.warn("Resume option enabled, but no checkpoint files found. Training will start from scratch.")
-        last_checkpoint_path = None
+        checkpoint_path = None
 
-    return last_checkpoint_path
+    return checkpoint_path
 
 
 def configure_trainer(options, wandb_logger=None):
@@ -206,15 +215,15 @@ if __name__ == "__main__":
     if options.mode == "fit":
 
         trainer = configure_trainer(options)
-        last_checkpoint_path = configure_checkpoints()
-        model.head = torch.compile(model.head)
-        model.stream_network.stream_module = torch.compile(model.stream_network.stream_module)
+        checkpoint_path = configure_checkpoints()
+        # model.head = torch.compile(model.head)
+        # model.stream_network.stream_module = torch.compile(model.stream_network.stream_module)
         print(model.stream_network)
 
         trainer.fit(
             model=model,
             datamodule=dm,
-            ckpt_path=last_checkpoint_path if (options.resume and last_checkpoint_path) else None,
+            ckpt_path=checkpoint_path
         )
 
     elif options.mode=="attention" or options.mode=="test":

@@ -4,6 +4,8 @@ FOLD="0"
 
 python3 main.py \
     --image_path=/home/ivanslootweg/data/SBCC/images \
+    --experiment_name="sclam_cobra_sb_lvl1" \
+    --wandb_project_name="sclam_cobra_sb_lvl1" \
     --mask_path=/home/ivanslootweg/data/SBCC/tissue_masks \
     --fold="${FOLD}" \
     --train_csv="/home/ivanslootweg/data/SBCC/train.csv" \
@@ -11,12 +13,11 @@ python3 main.py \
     --test_csv="/home/ivanslootweg/data/SBCC/test.csv" \
     --mask_suffix="" \
     --mode="fit" \
-    --resume \
-    --unfreeze_streaming_layers_at_epoch=2 \
+    --unfreeze_streaming_layers_at_epoch=10\
     --num_epochs=40 \
     --precision=16 \
     --strategy="ddp_find_unused_parameters_true" \
-    --default_save_dir="/home/ivanslootweg/data/SBCC/ckp" \
+    --default_save_dir="/home/ivanslootweg/data/SBCC" \
     --filetype=".tif" \
     --ckp_path="" \
     --grad_batches=32 \
@@ -25,7 +26,7 @@ python3 main.py \
     --pooling_kernel=16 \
     --num_classes=2 \
     --learning_rate=1e-4 \
-    --read_level=2 \
+    --read_level=1 \
     --num_workers=3 \
     --branch="sb" \
     --encoder="resnet34" \

@@ -27,6 +27,7 @@ class TrainConfig:
     default_save_dir: str = "./ckp"
     ckp_path: str = ""  # the name fo the ckp file within the default_save_dir, otherwise last.ckpt will be used (if present)
     resume: bool = False  # Whether to resume training from the last/best epoch
+    resume_epoch: int = 0
     grad_batches: int = 2  # Gradient accumulation: the amount of batches before optimizer step
     num_gpus: int = 1
     precision: str = "32"
@@ -50,7 +51,7 @@ class TrainConfig:
     tile_size_finetune: int = 3200  # Same as above, but should be lower since gradients of the entire model need to be kept in memory
     statistics_on_cpu: bool = True
     verbose: bool = True
-    train_streaming_layers: bool = True
+    train_streaming_layers: bool = False
     normalize_on_gpu: bool = True
     copy_to_gpu: bool = False  # Whether to copy the entire image to the gpu. Recommended False if image > 16000x16000
 

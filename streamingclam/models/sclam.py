@@ -6,6 +6,7 @@ from torchvision.models import resnet18, resnet34, resnet50
 from torchmetrics.classification import Accuracy, AUROC
 import os
 
+
 # Streamingclam works with resnets, can be extended to other encoders if needed
 class CLAMConfig(torch.nn.Module):
     def __init__(
@@ -131,17 +132,6 @@ class StreamingCLAM(ImageNetClassifier):
                 )
             else:
                 ds_blocks, head = self.add_pooling_layers(head)
-                """
-                AttributeError
-                CLAMConfig object (head) has no attribute parameters
-                in lightstream.modules.imagenet_temaplate ( (super())) :
-
-                    def extend_trainable_params(self):
-                        if self.params:
-                            return self.params + list(self.head.parameters())
-                        return list(self.head.parameters())
-                
-                """
                 super().__init__( # streaming initialized here
                     stream_net,
                     head,
@@ -221,7 +211,6 @@ class StreamingCLAM(ImageNetClassifier):
                 instance_eval=False,
                 attention_only=self.attention_only,
             )
-
         logits, Y_prob, Y_hat, A_raw, instance_dict = self.head(
             fmap,
             label=label,
@@ -248,6 +237,7 @@ class StreamingCLAM(ImageNetClassifier):
         mask = batch["mask"] if "mask" in batch.keys() else None
         label = batch["label"]
 
+
         self.image = image
         self.str_output = self.forward_streaming(image)
         self.str_output.requires_grad = self.training
@@ -261,6 +251,7 @@ class StreamingCLAM(ImageNetClassifier):
             attention_only=self.attention_only,
         )
 
+        """ ADD METRICS """
         loss = self.loss_fn(logits, label)
         probs = torch.nn.functional.softmax(logits, dim=1)
         self.train_acc.update(torch.argmax(logits, dim=1).detach(), label.detach())
@@ -364,7 +355,7 @@ class StreamingCLAM(ImageNetClassifier):
         optimizer = torch.optim.Adam(self.params, lr=self.learning_rate, weight_decay=1e-5)
 
         def lr_lambda(epoch):
-            if epoch < self.unfreeze_at_epoch:
+            if epoch < self.train_streaming_layers:
                 return 1
             else:
                 # halve the learning rate when switching to training all layers
