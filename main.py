@@ -1,10 +1,8 @@
 import os
 
-os.environ["WANDB_DIR"] = "/home/stephandooper"
+os.environ["WANDB_DIR"] = "/home/ivanslootweg/data/SBCC"
 os.environ["VIPS_CONCURRENCY"] = "30"
 os.environ["OMP_NUM_THREADS"] = "4"
-# os.environ["TORCH_LOGS"] = "+dynamo"
-# os.environ["TORCHDYNAMO_VERBOSE"]="1"
 import pyvips
 
 pyvips.cache_set_max(20)
@@ -18,6 +16,7 @@ from pathlib import Path
 import lightning.pytorch as pl
 from lightning.pytorch.callbacks import ModelCheckpoint
 from lightning.pytorch.loggers import WandbLogger
+from lightning.pytorch.loggers import TensorBoardLogger
 
 from streamingclam.options import TrainConfig
 from streamingclam.utils.memory_format import MemoryFormat
@@ -180,7 +179,6 @@ def configure_datamodule(options):
         variable_input_shapes=options.variable_input_shapes,
         copy_to_gpu=options.copy_to_gpu,
         num_workers=options.num_workers,
-        filetype=options.filetype,
         transform=augmentations if (options.use_augmentations and options.mode == "fit") else None,
         output_dir=Path(options.default_save_dir) / Path(f"/{options.experiment_name}/attentions")
     )
@@ -192,6 +190,7 @@ def get_options():
     parser = options.configure_parser_with_options()
     args = parser.parse_args()
     options.parser_to_options(vars(args))
+
     return options
 
 
@@ -213,12 +212,21 @@ if __name__ == "__main__":
     dm.setup(stage=options.mode)
 
     if options.mode == "fit":
+        # wandb_logger = WandbLogger(
+        #     name=options.experiment_name,
+        #     project=options.wandb_project_name,
+        #     save_dir=options.default_save_dir,
+        # )
 
-        trainer = configure_trainer(options)
+        logger = TensorBoardLogger(options.default_save_dir, version=f"{options.experiment_name}_{options.fold}", name="lightning_logs")
+        
+
+        trainer = configure_trainer(options,logger)
+        print(f"Trainer logger: {trainer.logger}")
         checkpoint_path = configure_checkpoints()
         # model.head = torch.compile(model.head)
         # model.stream_network.stream_module = torch.compile(model.stream_network.stream_module)
-        print(model.stream_network)
+        # print(model.stream_network)
 
         trainer.fit(
             model=model,

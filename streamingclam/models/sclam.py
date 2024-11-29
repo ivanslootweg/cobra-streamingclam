@@ -323,7 +323,7 @@ class StreamingCLAM(ImageNetClassifier):
         # We need to add torch.nn.Batchnorm to the keep modules, because of some in-place ops error if we don't
         # https://discuss.pytorch.org/t/register-full-backward-hook-for-residual-connection/146850
         streaming_options = {
-            "verbose": True,
+            "verbose": False,
             "copy_to_gpu": False,
             "statistics_on_cpu": True,
             "normalize_on_gpu": True,
