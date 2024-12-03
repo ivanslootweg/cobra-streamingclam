@@ -5,7 +5,7 @@ from streamingclam.models.clam import CLAM_MB, CLAM_SB
 from torchvision.models import resnet18, resnet34, resnet50
 from torchmetrics.classification import Accuracy, AUROC
 import os
-
+import pathlib
 
 # Streamingclam works with resnets, can be extended to other encoders if needed
 class CLAMConfig(torch.nn.Module):
@@ -81,6 +81,7 @@ class StreamingCLAM(ImageNetClassifier):
         loss_fn: torch.nn.functional,
         branch: str,
         n_classes: int,
+        embeddings_save_dir : pathlib.Path, 
         pooling_layer: str = "maxpool",
         pooling_kernel: int = 0,
         stream_pooling_kernel: bool = False,
@@ -91,6 +92,7 @@ class StreamingCLAM(ImageNetClassifier):
         unfreeze_at_epoch: int = 25,
         learning_rate: float = 2e-4,
         write_attention: bool = False,
+        save_embeddings : bool = False,
         **kwargs,
     ):
         self.stream_pooling_kernel = stream_pooling_kernel
@@ -102,6 +104,11 @@ class StreamingCLAM(ImageNetClassifier):
         self.unfreeze_at_epoch = unfreeze_at_epoch
         self.learning_rate = learning_rate
         self.write_attention = write_attention
+        self.save_embeddings = save_embeddings
+        self.embeddings_save_dir = embeddings_save_dir
+        if self.save_embeddings:
+            print("Saving embeddings during epoch 1 in path ", self.embeddings_save_dir)
+            os.makedirs(self.embeddings_save_dir, exist_ok=True)
 
         if self.pooling_kernel < 0:
             raise ValueError(f"pooling_kernel must be non-negative, found {pooling_kernel}")
@@ -231,6 +238,16 @@ class StreamingCLAM(ImageNetClassifier):
         )
         return out
 
+    def load_or_compute_embeddings(self,image,batch_idx):
+        cache_path = os.path.join(self.embeddings_save_dir, f"embedding_{batch_idx}.pt")
+        if os.path.exists(cache_path):
+            # Load the precomputed embeddings from the disk
+            embeddings = torch.load(cache_path)
+        else:
+            # Compute embeddings in the first epoch and store them
+            embeddings = self.forward_streaming(image)
+            torch.save(embeddings, cache_path)  # Save embeddings to disk for later use
+
     def training_step(self, batch, batch_idx: int, *args, **kwargs):
         image = batch["image"]
         image = image.to("cpu")
@@ -239,7 +256,9 @@ class StreamingCLAM(ImageNetClassifier):
 
 
         self.image = image
-        self.str_output = self.forward_streaming(image)
+        # self.str_output = self.forward_streaming(image)
+        self.load_or_compute_embeddings(image,batch_idx)      
+
         self.str_output.requires_grad = self.training
 
         logits, Y_prob, Y_hat, A_raw, instance_dict = self.forward_head(

@@ -3,6 +3,7 @@ import os
 os.environ["WANDB_DIR"] = "/home/ivanslootweg/data/SBCC"
 os.environ["VIPS_CONCURRENCY"] = "30"
 os.environ["OMP_NUM_THREADS"] = "4"
+os.environ["CCL_P2P_DISABLE"] = "1"
 import pyvips
 
 pyvips.cache_set_max(20)
@@ -145,7 +146,9 @@ def configure_streamingclam(options, streaming_options):
         "attention_only": options.attention_only,
         "unfreeze_at_epoch": options.unfreeze_streaming_layers_at_epoch,
         "learning_rate": options.learning_rate,
-        "write_attention": True
+        "write_attention": True,
+        "save_embeddings": options.save_embeddings,
+        "embeddings_save_dir" : Path(options.default_save_dir) / "embeddings"
     }
 
     if options.mode == "fit":
@@ -217,17 +220,13 @@ if __name__ == "__main__":
         #     project=options.wandb_project_name,
         #     save_dir=options.default_save_dir,
         # )
-
         logger = TensorBoardLogger(options.default_save_dir, version=f"{options.experiment_name}_{options.fold}", name="lightning_logs")
         
-
         trainer = configure_trainer(options,logger)
-        print(f"Trainer logger: {trainer.logger}")
         checkpoint_path = configure_checkpoints()
-        # model.head = torch.compile(model.head)
-        # model.stream_network.stream_module = torch.compile(model.stream_network.stream_module)
+        model.head = torch.compile(model.head)
+        model.stream_network.stream_module = torch.compile(model.stream_network.stream_module)
         # print(model.stream_network)
-
         trainer.fit(
             model=model,
             datamodule=dm,
