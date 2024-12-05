@@ -55,8 +55,7 @@ class StreamingClassificationDataset(Dataset):
             self.classification_frame = pd.read_csv(csv_file)
         else:
             self.classification_frame = csv_file
-
-        # Will be populated in check_csv function
+        
         self.data_paths = {"images": [], "masks": [], "labels": []}
 
         self.random_crop = A.RandomCrop(self.img_size, self.img_size, p=1.0)
@@ -117,7 +116,6 @@ class StreamingClassificationDataset(Dataset):
 
     def __getitem__(self, idx):
         sample, label, img_fname = self.get_img_pairs(idx)
-
         if self.transform:
             sample = self.transform(**sample)
 

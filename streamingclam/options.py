@@ -54,6 +54,8 @@ class TrainConfig:
     train_streaming_layers: bool = False
     normalize_on_gpu: bool = True
     copy_to_gpu: bool = False  # Whether to copy the entire image to the gpu. Recommended False if image > 16000x16000
+    save_embeddings : bool = False
+    embeddings_save_dir : str = "./embeddings"
 
     # Dataloader options
     image_size: int = 65536  # represents image size if variable_input_shape=False, else the maximum image size

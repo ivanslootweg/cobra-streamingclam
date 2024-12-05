@@ -5,6 +5,8 @@ from pathlib import Path
 import pandas as pd
 
 from streamingclam.data.sampler import weighted_sampler
+from torch.utils.data import SequentialSampler
+
 from streamingclam.data.dataset import StreamingClassificationDataset
 from streamingclam.data.attention_dataset import AttentionDataset
 
@@ -142,6 +144,9 @@ class StreamingCLAMDataModule(L.LightningDataModule):
             pin_memory=False,
             batch_size=1,
         )
+
+        print(self.train_dataset)
+    
 
     def val_dataloader(self):
         return DataLoader(

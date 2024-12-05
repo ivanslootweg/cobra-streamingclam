@@ -4,6 +4,7 @@ from lightstream.models.resnet.resnet import split_resnet
 from streamingclam.models.clam import CLAM_MB, CLAM_SB
 from torchvision.models import resnet18, resnet34, resnet50
 from torchmetrics.classification import Accuracy, AUROC
+
 import os
 import pathlib
 
@@ -169,6 +170,13 @@ class StreamingCLAM(ImageNetClassifier):
 
         self.test_outputs = []
 
+    def on_train_epoch_start(self):
+        super().on_train_epoch_start()
+        self.image_names = []
+
+    def on_train_epoch_end(self):
+        print("image names: ", self.image_names)
+
     def _configure_pooling_layer(self):
         if self.pooling_layer == "maxpool":
             pooling_layer = torch.nn.MaxPool2d
@@ -218,6 +226,7 @@ class StreamingCLAM(ImageNetClassifier):
                 instance_eval=False,
                 attention_only=self.attention_only,
             )
+
         logits, Y_prob, Y_hat, A_raw, instance_dict = self.head(
             fmap,
             label=label,
@@ -247,18 +256,17 @@ class StreamingCLAM(ImageNetClassifier):
             # Compute embeddings in the first epoch and store them
             embeddings = self.forward_streaming(image)
             torch.save(embeddings, cache_path)  # Save embeddings to disk for later use
+        return embeddings
 
     def training_step(self, batch, batch_idx: int, *args, **kwargs):
         image = batch["image"]
         image = image.to("cpu")
         mask = batch["mask"] if "mask" in batch.keys() else None
         label = batch["label"]
-
-
+        image_name = batch["image_name"]
         self.image = image
-        # self.str_output = self.forward_streaming(image)
-        self.load_or_compute_embeddings(image,batch_idx)      
-
+        # self.str_output = self.load_or_compute_embeddings(image,image_name) 
+        self.str_output = self.forward_streaming(image)
         self.str_output.requires_grad = self.training
 
         logits, Y_prob, Y_hat, A_raw, instance_dict = self.forward_head(
@@ -269,7 +277,6 @@ class StreamingCLAM(ImageNetClassifier):
             return_features=self.return_features,
             attention_only=self.attention_only,
         )
-
         """ ADD METRICS """
         loss = self.loss_fn(logits, label)
         probs = torch.nn.functional.softmax(logits, dim=1)
@@ -279,6 +286,7 @@ class StreamingCLAM(ImageNetClassifier):
         self.log("train_acc", self.train_acc, on_epoch=True, prog_bar=True, sync_dist=True)
         self.log("train_auc", self.train_auc, on_epoch=True, prog_bar=True, sync_dist=True)
         self.log("train_loss", loss.detach(), prog_bar=True, on_step=True, on_epoch=True, sync_dist=True)
+
         return loss
 
     def validation_step(self, batch, batch_idx):

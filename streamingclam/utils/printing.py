@@ -10,8 +10,8 @@ class PrintingCallback(Callback):
         pl_module.print(self.options)
         pl_module.print(self.options.to_dict())
         if trainer.global_rank == 0:
-            print("Using configuration with the following options")
-            pprint(self.options)
+            # print("Using configuration with the following options")
+            # print(self.options)
 
             tile_stride = pl_module.configure_tile_stride()
             network_output_stride = pl_module.stream_network.output_stride[1]
