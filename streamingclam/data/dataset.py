@@ -7,6 +7,8 @@ import pandas as pd
 from pathlib import Path
 from torch.utils.data import Dataset
 import albumentationsxl as A
+import os 
+import numpy as np
 
 # A.OneOrOther(A.OneOf([A.Blur(), A.GaussianBlur(sigma_limit=7)]), A.Sharpen()),
 # A.RandomBrightnessContrast(brightness_limit=0.1, contrast_limit=0.1),
@@ -29,6 +31,8 @@ class StreamingClassificationDataset(Dataset):
         tile_size: int,
         img_size: int,
         read_level: int,
+        load_embeddings: bool,
+        embeddings_source : Path = Path("/home/embeddings"), 
         transform: A.BaseCompose | None = None,
         mask_dir: Path | str | None = None,
         mask_suffix: str = "_tissue",
@@ -36,6 +40,7 @@ class StreamingClassificationDataset(Dataset):
         tile_stride: int | None = None,
         network_output_stride: int = 1,
         filetype=".tif",
+
     ):
         self.img_dir = Path(img_dir)
         self.filetype = filetype
@@ -51,11 +56,17 @@ class StreamingClassificationDataset(Dataset):
         self.variable_input_shapes = variable_input_shapes
         self.transform = transform
 
+        self.load_embeddings = load_embeddings
+        self.embeddings_source = embeddings_source
+
         if not isinstance(csv_file, pd.DataFrame):
             self.classification_frame = pd.read_csv(csv_file)
         else:
             self.classification_frame = csv_file
-        
+
+        # if len(self.classification_frame) > 960:
+        #     self.classification_frame = self.classification_frame[self.classification_frame["slide"].isin(['train-432','train-431','train_433'])]
+
         self.data_paths = {"images": [], "masks": [], "labels": []}
 
         self.random_crop = A.RandomCrop(self.img_size, self.img_size, p=1.0)
@@ -67,7 +78,6 @@ class StreamingClassificationDataset(Dataset):
 
     def check_csv(self):
         """Check if entries in csv file exist"""
-
         included = {"images": [], "masks": [], "labels": []} if self.mask_dir else {"images": [], "labels": []}
         for i in range(len(self)):
             images, label = self.get_img_path(i)  #
@@ -99,56 +109,74 @@ class StreamingClassificationDataset(Dataset):
         return [img_path], label
 
     def get_img_pairs(self, idx):
-        images = {"image": None}
-
+        sample = {"image": None}
         img_fname = str(self.data_paths["images"][idx])
         label = int(self.data_paths["labels"][idx])
-        image = pyvips.Image.new_from_file(img_fname, page=self.read_level)
-        images["image"] = image
-
-        if self.mask_dir:
+        image, image_width, mask, is_embedding = self.load_embedding_or_image(img_fname)
+        sample["width"] = image_width
+        sample["mask"] = mask
+        sample["is_embedding"] = is_embedding
+        sample["image"] = image
+        if self.mask_dir and not is_embedding:
             mask_fname = str(self.data_paths["masks"][idx])
             mask = pyvips.Image.new_from_file(mask_fname)
-            ratio = image.width / mask.width
-            images["mask"] = mask.resize(ratio, kernel="nearest")  # Resize mask to img size
+            ratio = image_width / mask.width
+            sample["mask"] = mask.resize(ratio, kernel="nearest")  # Resize mask to img size
+        return sample, label, img_fname
 
-        return images, label, img_fname
+    def load_embedding_or_image(self,fname):
+        cache_path = self.embeddings_source / f"{Path(fname).stem}.pt"
+        if os.path.exists(cache_path) and self.load_embeddings:
+            # Load precomputed embedding
+            _in = torch.load(cache_path,weights_only=False,map_location='cpu')
+            image = _in["embedding"]
+            image_width = int(_in["width"])
+            mask = _in["mask"]
+            is_embedding = True
+        else:
+            # Compute embedding
+            image = pyvips.Image.new_from_file(fname, page=self.read_level)
+            image_width = image.width
+            is_embedding = False
+            mask = None
+        return image, image_width, mask, is_embedding
 
     def __getitem__(self, idx):
         sample, label, img_fname = self.get_img_pairs(idx)
-        if self.transform:
-            sample = self.transform(**sample)
+        sample["image_name"] = Path(img_fname).stem
+        if not sample["is_embedding"]:
+            if self.transform:
+                sample = self.transform(**sample)
 
-        pad_to_tile_size = sample["image"].width < self.tile_size or sample["image"].height < self.tile_size
-        # Get the resize op depending on image size
-        resize_op = self.get_resize_op(pad_to_tile_size=pad_to_tile_size)
-        sample = resize_op(**sample)
+            pad_to_tile_size = sample["image"].width < self.tile_size or sample["image"].height < self.tile_size
+            # Get the resize op depending on image size
+            resize_op = self.get_resize_op(pad_to_tile_size=pad_to_tile_size)
+            sample = resize_op(**sample)
 
-        # if after padding to the tile stride the image is bigger than img_size, crop it (upper bound on memory)
-        if sample["image"].width * sample["image"].height > self.img_size**2:
-            sample = self.random_crop(**sample)
+            # if after padding to the tile stride the image is bigger than img_size, crop it (upper bound on memory)
+            if sample["image"].width * sample["image"].height > self.img_size**2:
+                sample = self.random_crop(**sample)
 
-        # Masks don't need to be really large for tissues, so scale them back
-        if "mask" in sample.keys():
-            # Resize to streamingclam output stride, with max pool kernel
-            # Rescale between model max pool and pyvips might not exactly align, so calculate new scale values
-            new_height = math.ceil(sample["mask"].height / self.network_output_stride)
-            vscale = new_height / sample["mask"].height
+            # Masks don't need to be really large for tissues, so scale them back
+            if "mask" in sample.keys():
+                # Resize to streamingclam output stride, with max pool kernel
+                # Rescale between model max pool and pyvips might not exactly align, so calculate new scale values
+                new_height = math.ceil(sample["mask"].height / self.network_output_stride)
+                vscale = new_height / sample["mask"].height
 
-            new_width = math.ceil(sample["mask"].width / self.network_output_stride)
-            hscale = new_width / sample["mask"].width
+                new_width = math.ceil(sample["mask"].width / self.network_output_stride)
+                hscale = new_width / sample["mask"].width
 
-            sample["mask"] = sample["mask"].resize(hscale, vscale=vscale, kernel="nearest")
+                sample["mask"] = sample["mask"].resize(hscale, vscale=vscale, kernel="nearest")
+            
+            to_tensor = A.Compose([A.ToTensor(transpose_mask=True)], is_check_shapes=False)
+            sample = to_tensor(**sample)
 
-        to_tensor = A.Compose([A.ToTensor(transpose_mask=True)], is_check_shapes=False)
-        sample = to_tensor(**sample)
-
-        # To ToTensor does not support cast to bool arrays yet, so do here
-        if "mask" in sample.keys():
-            sample["mask"] = sample["mask"] >= 1
+            # To ToTensor does not support cast to bool arrays yet, so do here
+            if "mask" in sample.keys():
+                sample["mask"] = sample["mask"] >= 1
 
         sample["label"] = torch.tensor(label)
-        sample["image_name"] = Path(img_fname).stem
         return sample
 
     def __len__(self):

@@ -19,6 +19,8 @@ class StreamingCLAMDataModule(L.LightningDataModule):
         tile_size: int,
         tile_stride: int,
         network_output_stride: int,
+        embeddings_source : Path, 
+        load_embeddings: bool = False,
         train_csv_path: str | Path | None = None,
         val_csv_path: str | Path | None = None,
         test_csv_path: str | Path | None = None,
@@ -58,12 +60,20 @@ class StreamingCLAMDataModule(L.LightningDataModule):
         self.verbose = verbose
         self.filetype = filetype
 
+        self.load_embeddings = load_embeddings
+        self.embeddings_source = embeddings_source
 
     def filter_written_files(self):
         """ Filters out any attention images in att_csv that are already written to output_dir"""
         attention_files_written = self.output_dir.rglob("*.tif")
 
-
+    def reset(self,stage:str):
+        if stage == "fit":
+            del self.train_dataset, self.sampler, self.val_dataset
+        elif stage == "test":
+            del self.test_dataset
+   
+        self.setup(stage)
 
     def setup(self, stage: str):
         # Assign train/val datasets for use in dataloaders
@@ -82,6 +92,8 @@ class StreamingCLAMDataModule(L.LightningDataModule):
                 tile_stride=self.tile_stride,
                 network_output_stride=self.network_output_stride,
                 filetype=self.filetype,
+                load_embeddings = self.load_embeddings,
+                embeddings_source = self.embeddings_source
             )
             self.sampler = weighted_sampler(self.train_dataset)
 
@@ -98,6 +110,8 @@ class StreamingCLAMDataModule(L.LightningDataModule):
                 tile_stride=self.tile_stride,
                 network_output_stride=self.network_output_stride,
                 filetype=self.filetype,
+                load_embeddings = self.load_embeddings,
+                embeddings_source = self.embeddings_source
             )
 
         if stage == "test":
@@ -114,6 +128,8 @@ class StreamingCLAMDataModule(L.LightningDataModule):
                 tile_stride=self.tile_stride,
                 network_output_stride=self.network_output_stride,
                 filetype=self.filetype,
+                load_embeddings = self.load_embeddings,
+                embeddings_source = self.embeddings_source
             )
         if stage == "predict":
             pass
@@ -145,7 +161,7 @@ class StreamingCLAMDataModule(L.LightningDataModule):
             batch_size=1,
         )
 
-        print(self.train_dataset)
+        # print(self.train_dataset)
     
 
     def val_dataloader(self):

@@ -56,7 +56,6 @@ class CLAMConfig(torch.nn.Module):
             )
         elif self.branch == "mb":
             print("Loading CLAM with multiple branches \n")
-
             return CLAM_MB(
                 gate=self.gate,
                 size=self.size,
@@ -82,7 +81,6 @@ class StreamingCLAM(ImageNetClassifier):
         loss_fn: torch.nn.functional,
         branch: str,
         n_classes: int,
-        embeddings_save_dir : pathlib.Path, 
         pooling_layer: str = "maxpool",
         pooling_kernel: int = 0,
         stream_pooling_kernel: bool = False,
@@ -93,7 +91,6 @@ class StreamingCLAM(ImageNetClassifier):
         unfreeze_at_epoch: int = 25,
         learning_rate: float = 2e-4,
         write_attention: bool = False,
-        save_embeddings : bool = False,
         **kwargs,
     ):
         self.stream_pooling_kernel = stream_pooling_kernel
@@ -105,11 +102,8 @@ class StreamingCLAM(ImageNetClassifier):
         self.unfreeze_at_epoch = unfreeze_at_epoch
         self.learning_rate = learning_rate
         self.write_attention = write_attention
-        self.save_embeddings = save_embeddings
-        self.embeddings_save_dir = embeddings_save_dir
-        if self.save_embeddings:
-            print("Saving embeddings during epoch 1 in path ", self.embeddings_save_dir)
-            os.makedirs(self.embeddings_save_dir, exist_ok=True)
+        self.save_embeddings = False
+        self.embedding_computed = False
 
         if self.pooling_kernel < 0:
             raise ValueError(f"pooling_kernel must be non-negative, found {pooling_kernel}")
@@ -172,10 +166,6 @@ class StreamingCLAM(ImageNetClassifier):
 
     def on_train_epoch_start(self):
         super().on_train_epoch_start()
-        self.image_names = []
-
-    def on_train_epoch_end(self):
-        print("image names: ", self.image_names)
 
     def _configure_pooling_layer(self):
         if self.pooling_layer == "maxpool":
@@ -237,8 +227,9 @@ class StreamingCLAM(ImageNetClassifier):
 
         return logits, Y_prob, Y_hat, A_raw, instance_dict
 
-    def forward(self, image, mask=None):
-        fmap = self.forward_streaming(image)
+    def forward(self, image, is_embedding, mask=None):
+        fmap = self.get_embedding(image,is_embedding,mask.device)
+        self.str_output = fmap
         out = self.forward_head(
             fmap,
             mask=mask,
@@ -247,31 +238,32 @@ class StreamingCLAM(ImageNetClassifier):
         )
         return out
 
-    def load_or_compute_embeddings(self,image,batch_idx):
-        cache_path = os.path.join(self.embeddings_save_dir, f"embedding_{batch_idx}.pt")
-        if os.path.exists(cache_path):
-            # Load the precomputed embeddings from the disk
-            embeddings = torch.load(cache_path)
+    def get_embedding(self,image,is_embedding,device="cpu"):
+        # compute embedding if not computed
+        if not is_embedding:
+            self.image = image 
+            self.embedding_computed = True 
+            image = self.forward_streaming(image)
         else:
-            # Compute embeddings in the first epoch and store them
-            embeddings = self.forward_streaming(image)
-            torch.save(embeddings, cache_path)  # Save embeddings to disk for later use
-        return embeddings
+            self.embedding_computed = False  
+            self.image = None
+            image = image.to(device)
+        return image
 
     def training_step(self, batch, batch_idx: int, *args, **kwargs):
         image = batch["image"]
         image = image.to("cpu")
-        mask = batch["mask"] if "mask" in batch.keys() else None
+        self.mask = batch["mask"] if "mask" in batch.keys() else None
+        self.width = batch["width"]
         label = batch["label"]
-        image_name = batch["image_name"]
-        self.image = image
-        # self.str_output = self.load_or_compute_embeddings(image,image_name) 
-        self.str_output = self.forward_streaming(image)
+        is_embedding = torch.all(batch["is_embedding"])
+        
+        self.str_output = self.get_embedding(image, is_embedding,self.mask.device)
         self.str_output.requires_grad = self.training
 
         logits, Y_prob, Y_hat, A_raw, instance_dict = self.forward_head(
             self.str_output,
-            mask=mask,
+            mask=self.mask,
             instance_eval=self.instance_eval,
             label=label if self.instance_eval else None,
             return_features=self.return_features,
@@ -286,7 +278,6 @@ class StreamingCLAM(ImageNetClassifier):
         self.log("train_acc", self.train_acc, on_epoch=True, prog_bar=True, sync_dist=True)
         self.log("train_auc", self.train_auc, on_epoch=True, prog_bar=True, sync_dist=True)
         self.log("train_loss", loss.detach(), prog_bar=True, on_step=True, on_epoch=True, sync_dist=True)
-
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -331,16 +322,17 @@ class StreamingCLAM(ImageNetClassifier):
                 "label": int(label.cpu().numpy()),
             }
         )
-
         return loss.detach().cpu()
 
     def _shared_eval_step(self, batch, batch_idx):
         image = batch["image"]
         image = image.to("cpu")
-        mask = batch["mask"] if "mask" in batch.keys() else None
+        self.mask = batch["mask"] if "mask" in batch.keys() else None
+        self.width = batch["width"]
         label = batch["label"]
+        is_embedding = torch.all(batch["is_embedding"])
 
-        logits, Y_prob, Y_hat, A_raw, instance_dict = self.forward(image, mask=mask)
+        logits, Y_prob, Y_hat, A_raw, instance_dict = self.forward(image, is_embedding, mask=self.mask)
         loss = self.loss_fn(logits, label)
         return loss, logits.detach(), label.detach()
 
@@ -402,7 +394,6 @@ class StreamingCLAM(ImageNetClassifier):
         torch.cuda.empty_cache()
         if self.train_streaming_layers:
             self.backward_streaming(self.image, self.str_output.grad)
-        del self.str_output, self.image
 
 
 if __name__ == "__main__":

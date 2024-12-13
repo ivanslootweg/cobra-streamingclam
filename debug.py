@@ -1,6 +1,36 @@
 from main import *
 import time 
 import os
+import shutil
+import glob
+
+OUT_PATH = Path("/data/temporary/ivan/DeepDerma/BCC_SCLAM/embeddings")
+OUT_LOCAL = Path("/home/embeddings")
+
+def write_embedding(image_name, embedding,mask,width):
+    cache_path = OUT_LOCAL / f"{image_name}.pt"
+    if not os.path.exists(cache_path):     
+        _out = {"embedding": embedding.squeeze(0),
+            "mask": mask,
+                "width": width
+            }
+ 
+        torch.save(_out, cache_path) 
+        cache_path = OUT_PATH  / f"{image_name}.pt"
+        torch.save(_out, cache_path) 
+        del _out
+
+
+def move_unique_files(src_dir = Path(""), dst_dir = Path("")):
+    src_files = os.listdir(src_dir)
+    dst_files = os.listdir(dst_dir)
+    new_files = src_files - dst_files
+    for file_path in new_files:
+        shutil.copyfile(src_dir / file_path, dst_dir / file_path)
+
+    """alternatively ( not recommended ) : move the full directory """
+    # copytree(str(self.embeddings_temp_dir),str(self.embeddings_source),dirs_exist_ok=True)
+
 
 if __name__ == "__main__":
     pl.seed_everything(1)
@@ -23,11 +53,14 @@ if __name__ == "__main__":
         dataloader = dm.train_dataloader()
         total = len(dataloader.dataset)
         for _step in tqdm(range(total),total=total):
-            if  (1537 >= _step) and (_step >= 1534):
-                idx = list(dataloader.sampler)[_step]
-                print(_step,idx)
-                batch = dataloader.dataset.__getitem__(idx)
-                model.training_step(batch,idx)
-            else:
-                time.sleep(0.001)
+            idx = list(dataloader.sampler)[_step]
+            if _step < 3315:
                 continue
+            try:
+                batch = dataloader.dataset.__getitem__(idx)
+                write_embedding(batch["image_name"],batch["image"],batch["mask"], batch["width"])
+            except Exception as e:
+                print("error: ", batch["image_name"], e)
+                continue
+    
+    move_unique_files(options.embeddings_temp_dir, options.embeddings_source)

@@ -22,6 +22,7 @@ from streamingclam.options import TrainConfig
 from streamingclam.utils.memory_format import MemoryFormat
 from streamingclam.utils.printing import PrintingCallback
 from streamingclam.utils.finetune import FeatureExtractorFreezeUnfreeze
+from streamingclam.utils.embeddings import IntermediateEmbeddings
 from streamingclam.data.splits import StreamingCLAMDataModule
 from streamingclam.data.dataset import augmentations
 from streamingclam.models.sclam import StreamingCLAM
@@ -42,6 +43,14 @@ def configure_callbacks(options):
             mode="min",
             verbose=True,
         )
+        embeddings_cb = IntermediateEmbeddings(
+            embeddings_source = Path(options.embeddings_source),
+            use_embeddings = options.use_embeddings,
+            unfreeze_at_epoch = options.unfreeze_streaming_layers_at_epoch,
+            embeddings_temp_dir = Path(options.embeddings_temp_dir),
+            export_to_remote_every = 200
+        )
+
         finetune_cb = FeatureExtractorFreezeUnfreeze(
             options.unfreeze_streaming_layers_at_epoch,
             tile_size_finetune=options.tile_size_finetune,
@@ -50,7 +59,7 @@ def configure_callbacks(options):
         memory_format_cb = MemoryFormat()
         print_cb = PrintingCallback(options)
 
-        callbacks = [checkpoint_callback, finetune_cb, memory_format_cb, print_cb]
+        callbacks = [checkpoint_callback, finetune_cb,embeddings_cb,memory_format_cb, print_cb]
     elif options.mode=="attention":
         writer_cb = AttentionWriter(Path(options.default_save_dir) / Path(f"{options.experiment_name}/attentions"),
                                     read_level=options.read_level,
@@ -146,8 +155,6 @@ def configure_streamingclam(options, streaming_options):
         "unfreeze_at_epoch": options.unfreeze_streaming_layers_at_epoch,
         "learning_rate": options.learning_rate,
         "write_attention": True,
-        "save_embeddings": options.save_embeddings,
-        "embeddings_save_dir" : options.embeddings_save_dir
     }
 
     if options.mode == "fit":
@@ -182,7 +189,9 @@ def configure_datamodule(options):
         copy_to_gpu=options.copy_to_gpu,
         num_workers=options.num_workers,
         transform=augmentations if (options.use_augmentations and options.mode == "fit") else None,
-        output_dir=Path(options.default_save_dir) / Path(f"/{options.experiment_name}/attentions")
+        output_dir=Path(options.default_save_dir) / Path(f"/{options.experiment_name}/attentions"),
+        embeddings_source=Path(options.embeddings_temp_dir),
+        load_embeddings=options.use_embeddings
     )
 
 

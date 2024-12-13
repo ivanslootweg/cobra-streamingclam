@@ -123,6 +123,7 @@ class FeatureExtractorFreezeUnfreeze(BaseFinetuning):
             pl_module.stream_network.stream_module.to(old_stream_module_dtype)
             pl_module.stream_network.stream_module.to(memory_format=torch.channels_last)
             pl_module.on_train_start()
+            
             # Reset dataloaders
             tile_stride = pl_module.configure_tile_stride()
             trainer.datamodule.tile_size = self.tile_size_finetune
